@@ -11,9 +11,9 @@
  * - 2) 键盘左/右/下键控制方块的移动，上键旋转方块
  * - 3) 绘制‘J’、‘Z’等形状的方块 @2024-10-23
  * - 4) 随机生成方块并赋上不同的颜色 @2024-10-23
+ * - 5) 方块的自动向下移动 @2024-10-23
  *
  * - 未实现功能如下：
- * - 3) 方块的自动向下移动
  * - 4) 方块之间、方块与边界之间的碰撞检测
  * - 5) 棋盘格中每一行填充满之后自动消除
  * - 6) 其他
@@ -55,48 +55,58 @@ const int board_line_num =  (board_width + 1) + (board_height + 1);
 	二维数组表示tile旋转后可能出现的所有位置
 	[4][4]，4种旋转，一个tile由四个坐标（小块）形成
 */
-// "O"型 tile 旋转后看上去没有任何变化
-glm::vec2 allRotationsOshape[4][4] =
-							  {{glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)},
-							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)},   
-							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)},   
-							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)}};
-// "I"型 tile
-glm::vec2 allRotationsIshape[4][4] =
-							  {{glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(-2, 0)},
-							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(0, 1), glm::vec2(0, -2)},   
-							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(-2, 0)},
-							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(0, 1), glm::vec2(0, -2)}};
-// "S"型 tile
-glm::vec2 allRotationsSshape[4][4] =
-							  {{glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, -1), glm::vec2(1, 0)},
-							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, -1), glm::vec2(0, 1)},   
-							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, -1), glm::vec2(1, 0)},
-							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, -1), glm::vec2(0, 1)}};
-// "Z"型 tile
-glm::vec2 allRotationsZshape[4][4] =
-							  {{glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(1, -1), glm::vec2(-1, 0)},
-							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, 1), glm::vec2(0, -1)},   
-							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(1, -1), glm::vec2(-1, 0)},
-							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, 1), glm::vec2(0, -1)}};
-// "L"型 tile
-glm::vec2 allRotationsLshape[4][4] =
-							  {{glm::vec2(0, 0), glm::vec2(-1,0), glm::vec2(1, 0), glm::vec2(-1,-1)},
-							   {glm::vec2(0, 1), glm::vec2(0, 0), glm::vec2(0,-1), glm::vec2(1, -1)},    
-							   {glm::vec2(1, 1), glm::vec2(-1,0), glm::vec2(0, 0), glm::vec2(1,  0)},   
-							   {glm::vec2(-1,1), glm::vec2(0, 1), glm::vec2(0, 0), glm::vec2(0, -1)}};
-// "J"型 tile
-glm::vec2 allRotationsJshape[4][4] =
-							  {{glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(1, -1)},
-							   {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(1, 1)},   
-							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(-1, 1)},
-							   {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(-1, -1)}};
-// "T"型 tile
-glm::vec2 allRotationsTshape[4][4] =
-							  {{glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(0, -1)},
-							   {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(1, 0)},   
-							   {glm::vec2(0, 0), glm::vec2(-1, 0), glm::vec2(1, 0), glm::vec2(0, 1)},
-							   {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(-1, 0)}};
+// 定义一个包含所有形状旋转数据的二维数组
+glm::vec2 allRotations[7][4][4] = {
+    // "O"型 tile
+    {
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)},
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)},
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)},
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)}
+    },
+    // "I"型 tile
+    {
+        {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(-2, 0)},
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(0, 1), glm::vec2(0, -2)},
+        {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(-2, 0)},
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(0, 1), glm::vec2(0, -2)}
+    },
+    // "S"型 tile
+    {
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, -1), glm::vec2(1, 0)},
+        {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, -1), glm::vec2(0, 1)},
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, -1), glm::vec2(1, 0)},
+        {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, -1), glm::vec2(0, 1)}
+    },
+    // "Z"型 tile
+    {
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(1, -1), glm::vec2(-1, 0)},
+        {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, 1), glm::vec2(0, -1)},
+        {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(1, -1), glm::vec2(-1, 0)},
+        {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, 1), glm::vec2(0, -1)}
+    },
+    // "L"型 tile
+    {
+        {glm::vec2(0, 0), glm::vec2(-1,0), glm::vec2(1, 0), glm::vec2(-1,-1)},
+        {glm::vec2(0, 1), glm::vec2(0, 0), glm::vec2(0,-1), glm::vec2(1, -1)},
+        {glm::vec2(1, 1), glm::vec2(-1,0), glm::vec2(0, 0), glm::vec2(1,  0)},
+        {glm::vec2(-1,1), glm::vec2(0, 1), glm::vec2(0, 0), glm::vec2(0, -1)}
+    },
+    // "J"型 tile
+    {
+        {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(1, -1)},
+        {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(1, 1)},
+        {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(-1, 1)},
+        {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(-1, -1)}
+    },
+    // "T"型 tile
+    {
+        {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(0, -1)},
+        {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(1, 0)},
+        {glm::vec2(0, 0), glm::vec2(-1, 0), glm::vec2(1, 0), glm::vec2(0, 1)},
+        {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(-1, 0)}
+    }
+};
 
 // 绘制窗口的颜色变量
 glm::vec4 orange = glm::vec4(1.0, 0.5, 0.0, 1.0);
@@ -115,8 +125,12 @@ glm::vec4 colors[] = {
 // 当前方块的位置（以棋盘格的左下角为原点的坐标系）
 glm::vec2 tilepos = glm::vec2(5, 19);
 
+// 当前方块的形状
+int tileshape; // 0~6
+
 // 当前方块的颜色
 glm::vec4 tilecolor;
+
 
 // 布尔数组表示棋盘格的某位置是否被方块填充，即board[x][y] = true表示(x,y)处格子被填充。
 // （以棋盘格的左下角为原点的坐标系）
@@ -190,44 +204,9 @@ void newtile()
 	rotation = 0;
 
 	/* 随机生成不同形状的方块，使用随机数 */
-	int shape = rand() % 7;
-	switch (shape) {
-		// 形状"O"
-		case 0:
-			for (int i = 0; i < 4; ++i) {
-				tile[i] = allRotationsOshape[0][i];
-			}
-			break;
-		// 形状"I"
-		case 1:
-            for (int i = 0; i < 4; i++)
-                tile[i] = allRotationsIshape[0][i];
-            break;
-		// 形状"S"
-        case 2:
-            for (int i = 0; i < 4; i++)
-                tile[i] = allRotationsSshape[0][i];
-            break;
-		// 形状"Z"
-        case 3:
-            for (int i = 0; i < 4; i++)
-                tile[i] = allRotationsZshape[0][i];
-            break;
-		// 形状"L"
-        case 4:
-            for (int i = 0; i < 4; i++)
-                tile[i] = allRotationsLshape[0][i];
-            break;
-		// 形状"J"
-        case 5:
-            for (int i = 0; i < 4; i++)
-                tile[i] = allRotationsJshape[0][i];
-            break;
-		// 形状"T"
-        case 6:
-            for (int i = 0; i < 4; i++)
-                tile[i] = allRotationsTshape[0][i];
-            break;
+	tileshape = rand() % 7;
+	for (int i = 0; i < 4; ++i) {
+		tile[i] = allRotations[tileshape][0][i];
 	}
 
 	updatetile();
@@ -395,15 +374,15 @@ void rotate()
 	int nextrotation = (rotation + 1) % 4;
 
 	// 检查当前旋转之后的位置的有效性
-	if (checkvalid((allRotationsLshape[nextrotation][0]) + tilepos)
-		&& checkvalid((allRotationsLshape[nextrotation][1]) + tilepos)
-		&& checkvalid((allRotationsLshape[nextrotation][2]) + tilepos)
-		&& checkvalid((allRotationsLshape[nextrotation][3]) + tilepos))
+	if (checkvalid((allRotations[tileshape][nextrotation][0]) + tilepos)
+		&& checkvalid((allRotations[tileshape][nextrotation][1]) + tilepos)
+		&& checkvalid((allRotations[tileshape][nextrotation][2]) + tilepos)
+		&& checkvalid((allRotations[tileshape][nextrotation][3]) + tilepos))
 	{
 		// 更新旋转，将当前方块设置为旋转之后的方块
 		rotation = nextrotation;
 		for (int i = 0; i < 4; i++)
-			tile[i] = allRotationsLshape[rotation][i];
+			tile[i] = allRotations[tileshape][rotation][i];
 
 		updatetile();
 	}
