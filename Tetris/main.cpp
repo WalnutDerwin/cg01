@@ -9,9 +9,9 @@
  * - 已实现功能如下：
  * - 1) 绘制棋盘格和‘L’型方块
  * - 2) 键盘左/右/下键控制方块的移动，上键旋转方块
+ * - 3) 绘制‘J’、‘Z’等形状的方块
  *
  * - 未实现功能如下：
- * - 1) 绘制‘J’、‘Z’等形状的方块
  * - 2) 随机生成方块并赋上不同的颜色
  * - 3) 方块的自动向下移动
  * - 4) 方块之间、方块与边界之间的碰撞检测
@@ -50,13 +50,58 @@ const int points_num = board_height * board_width * 6;
 // 网格线的数量
 const int board_line_num =  (board_width + 1) + (board_height + 1);
 
-
-// 一个二维数组表示所有可能出现的方块和方向。
+/*
+	二维数组表示tile旋转后可能出现的所有位置
+	[4][4]，4种旋转，一个tile由四个坐标（小块）形成
+*/
+// "O"型 tile 旋转后看上去没有任何变化
+glm::vec2 allRotationsOshape[4][4] =
+							  {{glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)},
+							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)},   
+							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)},   
+							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, 0), glm::vec2(-1,-1)}};
+// "I"型 tile
+glm::vec2 allRotationsIshape[4][4] =
+							  {{glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(-2, 0)},
+							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(0, 1), glm::vec2(0, -2)},   
+							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(-2, 0)},
+							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(0, 1), glm::vec2(0, -2)}};
+// "S"型 tile
+glm::vec2 allRotationsSshape[4][4] =
+							  {{glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, -1), glm::vec2(1, 0)},
+							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, -1), glm::vec2(0, 1)},   
+							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, -1), glm::vec2(1, 0)},
+							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, -1), glm::vec2(0, 1)}};
+// "Z"型 tile
+glm::vec2 allRotationsZshape[4][4] =
+							  {{glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(1, -1), glm::vec2(-1, 0)},
+							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, 1), glm::vec2(0, -1)},   
+							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(1, -1), glm::vec2(-1, 0)},
+							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, 1), glm::vec2(0, -1)}};
+// "S"型 tile
+glm::vec2 allRotationsSshape[4][4] =
+							  {{glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, -1), glm::vec2(1, 0)},
+							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, -1), glm::vec2(0, 1)},   
+							   {glm::vec2(0, 0), glm::vec2(0, -1), glm::vec2(-1, -1), glm::vec2(1, 0)},
+							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, -1), glm::vec2(0, 1)}};
+// "L"型 tile
 glm::vec2 allRotationsLshape[4][4] =
-							  {{glm::vec2(0, 0), glm::vec2(-1,0), glm::vec2(1, 0), glm::vec2(-1,-1)},	//   "L"
-							   {glm::vec2(0, 1), glm::vec2(0, 0), glm::vec2(0,-1), glm::vec2(1, -1)},   //
-							   {glm::vec2(1, 1), glm::vec2(-1,0), glm::vec2(0, 0), glm::vec2(1,  0)},   //
+							  {{glm::vec2(0, 0), glm::vec2(-1,0), glm::vec2(1, 0), glm::vec2(-1,-1)},
+							   {glm::vec2(0, 1), glm::vec2(0, 0), glm::vec2(0,-1), glm::vec2(1, -1)},    
+							   {glm::vec2(1, 1), glm::vec2(-1,0), glm::vec2(0, 0), glm::vec2(1,  0)},   
 							   {glm::vec2(-1,1), glm::vec2(0, 1), glm::vec2(0, 0), glm::vec2(0, -1)}};
+// "J"型 tile
+glm::vec2 allRotationsJshape[4][4] =
+							  {{glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(1, -1)},
+							   {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(1, 1)},   
+							   {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(-1, 1)},
+							   {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(-1, -1)}};
+// "T"型 tile
+glm::vec2 allRotationsTshape[4][4] =
+							  {{glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(-1, 0), glm::vec2(0, -1)},
+							   {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(1, 0)},   
+							   {glm::vec2(0, 0), glm::vec2(-1, 0), glm::vec2(1, 0), glm::vec2(0, 1)},
+							   {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(-1, 0)}};
 
 // 绘制窗口的颜色变量
 glm::vec4 orange = glm::vec4(1.0, 0.5, 0.0, 1.0);
