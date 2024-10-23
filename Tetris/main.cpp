@@ -9,10 +9,10 @@
  * - 已实现功能如下：
  * - 1) 绘制棋盘格和‘L’型方块
  * - 2) 键盘左/右/下键控制方块的移动，上键旋转方块
- * - 3) 绘制‘J’、‘Z’等形状的方块
+ * - 3) 绘制‘J’、‘Z’等形状的方块 @2024-10-23
+ * - 4) 随机生成方块并赋上不同的颜色 @2024-10-23
  *
  * - 未实现功能如下：
- * - 2) 随机生成方块并赋上不同的颜色
  * - 3) 方块的自动向下移动
  * - 4) 方块之间、方块与边界之间的碰撞检测
  * - 5) 棋盘格中每一行填充满之后自动消除
@@ -51,6 +51,7 @@ const int points_num = board_height * board_width * 6;
 const int board_line_num =  (board_width + 1) + (board_height + 1);
 
 /*
+	@TODO: 绘制‘J’、‘Z’等形状的方块
 	二维数组表示tile旋转后可能出现的所有位置
 	[4][4]，4种旋转，一个tile由四个坐标（小块）形成
 */
@@ -102,8 +103,20 @@ glm::vec4 orange = glm::vec4(1.0, 0.5, 0.0, 1.0);
 glm::vec4 white  = glm::vec4(1.0, 1.0, 1.0, 1.0);
 glm::vec4 black  = glm::vec4(0.0, 0.0, 0.0, 1.0);
 
+// 可供方块选择的颜色
+glm::vec4 colors[] = {
+	glm::vec4(0.976, 0.290, 0.247, 1.0), // Red rgb(249, 74, 63)
+	glm::vec4(0.996, 0.980, 0.243, 1.0), // Yellow rgb(254, 250, 62)
+	glm::vec4(1.0, 0.627, 0.235, 1.0), // Orange rgb(255, 160, 60)
+	glm::vec4(1.0, 0.541, 1.0, 1.0), // Purple rgb(255, 138, 255)
+	glm::vec4(0.502, 0.525, 0.996, 1.0) // Blue rgb(128, 134, 254)
+};
+
 // 当前方块的位置（以棋盘格的左下角为原点的坐标系）
 glm::vec2 tilepos = glm::vec2(5, 19);
+
+// 当前方块的颜色
+glm::vec4 tilecolor;
 
 // 布尔数组表示棋盘格的某位置是否被方块填充，即board[x][y] = true表示(x,y)处格子被填充。
 // （以棋盘格的左下角为原点的坐标系）
@@ -167,23 +180,66 @@ void updatetile()
 
 // 设置当前方块为下一个即将出现的方块。在游戏开始的时候调用来创建一个初始的方块，
 // 在游戏结束的时候判断，没有足够的空间来生成新的方块。
+/*
+	@TODO: 随机生成方块并赋上不同的颜色
+*/
 void newtile()
 {
 	// 将新方块放于棋盘格的最上行中间位置并设置默认的旋转方向
 	tilepos = glm::vec2(5 , 19);
 	rotation = 0;
 
-	for (int i = 0; i < 4; i++)
-	{
-		tile[i] = allRotationsLshape[0][i];
+	/* 随机生成不同形状的方块，使用随机数 */
+	int shape = rand() % 7;
+	switch (shape) {
+		// 形状"O"
+		case 0:
+			for (int i = 0; i < 4; ++i) {
+				tile[i] = allRotationsOshape[0][i];
+			}
+			break;
+		// 形状"I"
+		case 1:
+            for (int i = 0; i < 4; i++)
+                tile[i] = allRotationsIshape[0][i];
+            break;
+		// 形状"S"
+        case 2:
+            for (int i = 0; i < 4; i++)
+                tile[i] = allRotationsSshape[0][i];
+            break;
+		// 形状"Z"
+        case 3:
+            for (int i = 0; i < 4; i++)
+                tile[i] = allRotationsZshape[0][i];
+            break;
+		// 形状"L"
+        case 4:
+            for (int i = 0; i < 4; i++)
+                tile[i] = allRotationsLshape[0][i];
+            break;
+		// 形状"J"
+        case 5:
+            for (int i = 0; i < 4; i++)
+                tile[i] = allRotationsJshape[0][i];
+            break;
+		// 形状"T"
+        case 6:
+            for (int i = 0; i < 4; i++)
+                tile[i] = allRotationsTshape[0][i];
+            break;
 	}
 
 	updatetile();
 
+	/* 随机附上颜色 */
+	tilecolor = colors[rand() % 5];
+
 	// 给新方块赋上颜色
 	glm::vec4 newcolours[24];
+	// 一小块有6个点 一个tile就有24个点需要附上颜色
 	for (int i = 0; i < 24; i++)
-		newcolours[i] = orange;
+		newcolours[i] = tilecolor;
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(newcolours), newcolours);
@@ -371,7 +427,7 @@ void settile()
 		// 将格子对应在棋盘格上的位置设置为填充
 		board[x][y] = true;
 		// 并将相应位置的颜色修改
-		changecellcolour(glm::vec2(x, y), orange);
+		changecellcolour(glm::vec2(x, y), tilecolor);
 	}
 }
 
@@ -519,6 +575,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 int main(int argc, char **argv)
 {
+	srand(time(NULL)); // 初始化随机数生成器
+
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
