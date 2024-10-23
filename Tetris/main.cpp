@@ -432,7 +432,8 @@ void settile()
 }
 
 // 给定位置(x,y)，移动方块。有效的移动值为(-1,0)，(1,0)，(0,-1)，分别对应于向
-// 左，向下和向右移动。如果移动成功，返回值为true，反之为false
+// 左，向右和向下移动。如果移动成功，返回值为true，反之为false
+// Ps: 此处原注释是错误的，向右和向下写反了，已修正
 bool movetile(glm::vec2 direction)
 {
 	// 计算移动之后的方块的位置坐标
@@ -576,6 +577,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 int main(int argc, char **argv)
 {
 	srand(time(NULL)); // 初始化随机数生成器
+	double startTime = glfwGetTime(); // 初始时间
 
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -608,6 +610,13 @@ int main(int argc, char **argv)
 	init();
 	while (!glfwWindowShouldClose(window))
     { 
+		double currentTime = glfwGetTime();
+		if (currentTime - startTime >= 1.0) {
+			// 若已经过去了一秒就向下移动方块
+			movetile(glm::vec2(0, -1));
+			startTime = currentTime;
+		}
+
         display();
         glfwSwapBuffers(window);
         glfwPollEvents();	
