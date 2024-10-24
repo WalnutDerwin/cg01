@@ -12,9 +12,9 @@
  * - 3) 绘制‘J’、‘Z’等形状的方块 @2024-10-23
  * - 4) 随机生成方块并赋上不同的颜色 @2024-10-23
  * - 5) 方块的自动向下移动 @2024-10-23
+ * - 6) 方块之间、方块与边界之间的碰撞检测 @2024-10-24
  *
  * - 未实现功能如下：
- * - 4) 方块之间、方块与边界之间的碰撞检测
  * - 5) 棋盘格中每一行填充满之后自动消除
  * - 6) 其他
  *
@@ -365,7 +365,7 @@ void init()
 bool checkvalid(glm::vec2 cellpos)
 {
 	if((cellpos.x >=0) && (cellpos.x < board_width) && (cellpos.y >= 0) && (cellpos.y < board_height) &&
-		!board[int(cellpos.x)][int(cellpos.y)])
+		!board[static_cast<int>(cellpos.x)][static_cast<int>(cellpos.y)])
 		return true;
 	else
 		return false;
@@ -392,13 +392,45 @@ void rotate()
 	}
 }
 
-// 检查棋盘格在row行有没有被填充满
+// 检查棋盘格在row行有没有被填充满（若填满，则消除该行，并将上方所有方块向下移动一行）
 void checkfullrow(int row)
 {
+	// 检查row行是否被填满
+	bool full = true;
+	for (int col = 0; col < board_width; ++col) {
+		if (!board[col][row]) {
+			full = false;
+			break;
+		}
+	}
 
+	// 若row行被填满
+	if (full) {
+
+		// 消除该行
+		for (int col = 0; col < board_width; ++col) {
+			board[col][row] = false; // 恢复为没有填充的状态
+			changecellcolour(glm::vec2(col, row), black); // 改变颜色为默认初始的黑色
+		}
+
+		// 该行上方所有方块向下移动一行
+		for (int curr_row = row; curr_row < board_height - 1; ++curr_row) {
+			for (int curr_col = 0; curr_col < board_width; ++curr_col) {
+				board[curr_col][curr_row] = board[curr_col][curr_row + 1];
+				// 获取 (curr_col, curr_row + 1)的颜色并赋值
+				changecellcolour(glm::vec2(curr_col, curr_row), board_colours[(int)( 6 * ( board_width * (curr_row + 1) + curr_col))]); 
+			}
+		}
+
+		// 消除第board_height - 1行（top行）
+		for (int col = 0; col < board_width; ++col) {
+			board[col][board_height - 1] = false; // 恢复为没有填充的状态
+			changecellcolour(glm::vec2(col, board_height - 1), black); // 改变颜色为默认初始的黑色
+		}
+	}
 }
 
-// 放置当前方块，并且更新棋盘格对应位置顶点的颜色VBO
+// 放置当前方块（固定在特定的位置），并且更新棋盘格对应位置顶点的颜色VBO
 void settile()
 {
 	// 每个格子
@@ -411,6 +443,11 @@ void settile()
 		board[x][y] = true;
 		// 并将相应位置的颜色修改
 		changecellcolour(glm::vec2(x, y), tilecolor);
+	}
+
+	// 检测每一行是否被填满
+	for (int i = 0; i < board_height; ++i) {
+		checkfullrow(i);
 	}
 }
 
