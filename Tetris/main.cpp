@@ -6,17 +6,19 @@
  * - 本代码仅仅是参考代码，具体要求请参考作业说明，按照顺序逐步完成。
  * - 关于配置OpenGL开发环境、编译运行，请参考第一周实验课程相关文档。
  *
- * - 已实现功能如下：
+ * - 已实现的基础功能如下：
  * - 1) 绘制棋盘格和‘L’型方块
  * - 2) 键盘左/右/下键控制方块的移动，上键旋转方块
  * - 3) 绘制‘J’、‘Z’等形状的方块 @2024-10-23
  * - 4) 随机生成方块并赋上不同的颜色 @2024-10-23
  * - 5) 方块的自动向下移动 @2024-10-23
  * - 6) 方块之间、方块与边界之间的碰撞检测 @2024-10-24
- *
+ * - 7) 棋盘格中每一行填充满之后自动消除 @2024-10-24
+ * 
  * - 未实现功能如下：
- * - 5) 棋盘格中每一行填充满之后自动消除
- * - 6) 其他
+ * 
+ * - 8) 占满后游戏结束
+ * - 9) 按r键可以重新开始游戏
  *
  */
 
@@ -208,6 +210,18 @@ void newtile()
 	for (int i = 0; i < 4; ++i) {
 		tile[i] = allRotations[tileshape][0][i];
 	}
+
+	/*
+		在生成形状和位置后，检测每个坐标是否被占满。若占满，则说明没有足够空间生成新的方块
+	*/
+	for (int i = 0; i < 4; ++i) {
+		int x = tilepos.x + tile[i].x; // 参考updatetitle知道如何计算方块的小格的坐标值
+		int y = tilepos.y + tile[i].y;
+		if (board[x][y]) {
+			exit(EXIT_SUCCESS);  // 结束游戏
+		}
+	}
+
 
 	updatetile();
 
@@ -580,7 +594,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				}
 			case GLFW_KEY_Q:
 				if(action == GLFW_PRESS){
-					exit(EXIT_SUCCESS);
+					exit(EXIT_SUCCESS); // 结束游戏
 					break;
 				}
 				else
