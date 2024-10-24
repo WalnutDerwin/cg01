@@ -14,11 +14,11 @@
  * - 5) 方块的自动向下移动 @2024-10-23
  * - 6) 方块之间、方块与边界之间的碰撞检测 @2024-10-24
  * - 7) 棋盘格中每一行填充满之后自动消除 @2024-10-24
+ * - 8) 占满后游戏结束（能够检测到游戏结束条件）@2024-10-24
+ * - 9) 按r键可以重新开始游戏 @2024-10-24
  * 
  * - 未实现功能如下：
  * 
- * - 8) 占满后游戏结束
- * - 9) 按r键可以重新开始游戏
  *
  */
 
@@ -29,6 +29,7 @@
 #include <string>
 
 int starttime;			// 控制方块向下移动时间
+double startTime; // 记录程序开始的时间（用于计算时间变化）
 int rotation = 0;		// 控制当前窗口中的方块旋转
 glm::vec2 tile[4];			// 表示当前窗口中的方块
 bool gameover = false;	// 游戏结束控制变量
@@ -503,7 +504,9 @@ bool movetile(glm::vec2 direction)
 // 重新启动游戏
 void restart()
 {
-
+	init(); // 重新初始化
+	gameover = false; // 重新设置gameover为false（使得游戏结束后可以重新开始游戏）
+	startTime = glfwGetTime(); // 更新时间
 }
 
 // 游戏渲染部分
@@ -604,7 +607,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				
 			case GLFW_KEY_R:
 				if(action == GLFW_PRESS){
-					restart();
+					restart(); // 重新启动游戏
 					break;
 				}
 				else
@@ -620,7 +623,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 int main(int argc, char **argv)
 {
 	srand(time(NULL)); // 初始化随机数生成器
-	double startTime = glfwGetTime(); // 初始时间
+
+	startTime = glfwGetTime(); // 将startTime赋值为程序的初始时间
 
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
