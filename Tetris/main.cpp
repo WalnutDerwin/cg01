@@ -44,6 +44,9 @@ bool gameover = false;	// 游戏结束控制变量
 int xsize = 400;		// 窗口大小（尽量不要变动窗口大小！）
 int ysize = 720;
 
+bool isDropping = false; // 记录是否在快速下落
+double dropFPS = 90; // 设置掉落的动画帧数为90帧
+
 // 单个网格大小
 int tile_width = 33;
 
@@ -546,11 +549,7 @@ void reshape(GLsizei w, GLsizei h)
 	实现方块的快速下落功能
 */
 void droptile() {
-	while (movetile(glm::vec2(0, -1))) {
-		// 只要有效移动，就不断向下
-	}
-	settile(); // 降到最低位置后，安置方块
-	newtile(); // 刷新新的方块
+	isDropping = true;
 }
 
 // 键盘响应事件中的特殊按键响应
@@ -685,14 +684,15 @@ int main(int argc, char **argv)
 	while (!glfwWindowShouldClose(window))
     { 
 		double currentTime = glfwGetTime();
-		if (currentTime - startTime >= 1.0) {
+		if (currentTime - startTime >= (isDropping ? (1.0 / dropFPS) : 1.0)) {
 			// 若已经过去了一秒就向下移动方块
 			/*
 				增加对移动失败的检测，解决到达底部后，不再自动下落引起的判定bug
 			*/
-			if (!movetile(glm::vec2(0, -1))) {
+			if (!movetile(glm::vec2(0, -1)) ) {
 				settile();
 				newtile();
+				isDropping = false;
 			}
 			startTime = currentTime;
 		}
