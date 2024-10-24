@@ -17,8 +17,16 @@
  * - 8) 占满后游戏结束（能够检测到游戏结束条件）@2024-10-24
  * - 9) 按r键可以重新开始游戏 @2024-10-24
  * 
- * - 未实现功能如下：
+ * - 已实现的进阶功能如下：
  * 
+ * 
+ * - 未实现功能如下：
+ * - 1) 按空格键可以快速下落
+ * - 2) 随着游戏进行，下落速度加快
+ * - 3) 按p键可以暂停游戏
+ * - 4) 退出游戏和暂停游戏的信息显示
+ * - 5) 下落位置的预览
+ * - 6) 消除效果的特效
  *
  */
 
@@ -534,6 +542,17 @@ void reshape(GLsizei w, GLsizei h)
 	glViewport(0, 0, w, h);
 }
 
+/*
+	实现方块的快速下落功能
+*/
+void droptile() {
+	while (movetile(glm::vec2(0, -1))) {
+		// 只要有效移动，就不断向下
+	}
+	settile(); // 降到最低位置后，安置方块
+	newtile(); // 刷新新的方块
+}
+
 // 键盘响应事件中的特殊按键响应
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
@@ -614,6 +633,14 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				{
 					break;
 				}		
+			case GLFW_KEY_SPACE:
+				if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+					droptile();
+					break;
+				}
+				else {
+					break;
+				}
 		}
 	}
 }
