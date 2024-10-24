@@ -493,16 +493,18 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				}
 			case GLFW_KEY_DOWN: // 向下按键移动方块
 				if (action == GLFW_PRESS || action == GLFW_REPEAT){
+					// 移动失败
 					if (!movetile(glm::vec2(0, -1)))
 					{
-						settile();
-						newtile();
+						settile(); // 放置
+						newtile(); // 新tile
 						break;
 					}
+					// 移动成功
 					else
 					{
 						break;
-				}
+					}
 				}
 			case GLFW_KEY_LEFT:  // 向左按键移动方块
 				if (action == GLFW_PRESS || action == GLFW_REPEAT){
@@ -596,7 +598,13 @@ int main(int argc, char **argv)
 		double currentTime = glfwGetTime();
 		if (currentTime - startTime >= 1.0) {
 			// 若已经过去了一秒就向下移动方块
-			movetile(glm::vec2(0, -1));
+			/*
+				增加对移动失败的检测，解决到达底部后，不再自动下落引起的判定bug
+			*/
+			if (!movetile(glm::vec2(0, -1))) {
+				settile();
+				newtile();
+			}
 			startTime = currentTime;
 		}
 
