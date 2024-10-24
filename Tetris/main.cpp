@@ -358,10 +358,14 @@ void init()
 	// starttime = glutGet(GLUT_ELAPSED_TIME);
 }
 
+/*
+	实现方块与方块之间、方块与边界之间的碰撞检测
+*/
 // 检查在cellpos位置的格子是否被填充或者是否在棋盘格的边界范围内
 bool checkvalid(glm::vec2 cellpos)
 {
-	if((cellpos.x >=0) && (cellpos.x < board_width) && (cellpos.y >= 0) && (cellpos.y < board_height) )
+	if((cellpos.x >=0) && (cellpos.x < board_width) && (cellpos.y >= 0) && (cellpos.y < board_height) &&
+		!board[int(cellpos.x)][int(cellpos.y)])
 		return true;
 	else
 		return false;
