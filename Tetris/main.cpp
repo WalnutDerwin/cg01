@@ -392,8 +392,11 @@ void rotate()
 	}
 }
 
-// 检查棋盘格在row行有没有被填充满（若填满，则消除该行，并将上方所有方块向下移动一行）
-void checkfullrow(int row)
+/*
+	检查棋盘格在row行有没有被填充满（若填满，则消除该行，并将上方所有方块向下移动一行）
+	并返回full，如果true则row行满且完成了消除，若false则row行非满
+*/
+bool checkfullrow(int row)
 {
 	// 检查row行是否被填满
 	bool full = true;
@@ -428,6 +431,8 @@ void checkfullrow(int row)
 			changecellcolour(glm::vec2(col, board_height - 1), black); // 改变颜色为默认初始的黑色
 		}
 	}
+
+	return full;
 }
 
 // 放置当前方块（固定在特定的位置），并且更新棋盘格对应位置顶点的颜色VBO
@@ -446,8 +451,10 @@ void settile()
 	}
 
 	// 检测每一行是否被填满
-	for (int i = 0; i < board_height; ++i) {
-		checkfullrow(i);
+	for (int r = 0; r < board_height; ++r) {
+		if (checkfullrow(r)) {
+			r--; // 若i行满且完成了消除，则应对i行再进行一次检查
+		}
 	}
 }
 
