@@ -18,10 +18,9 @@
  * - 9) 按r键可以重新开始游戏 @2024-10-24
  * 
  * - 已实现的进阶功能如下：
- * 
+ * - 1) 按空格键可以快速下落 @2024-10-24
  * 
  * - 未实现功能如下：
- * - 1) 按空格键可以快速下落
  * - 2) 随着游戏进行，下落速度加快
  * - 3) 按p键可以暂停游戏
  * - 4) 退出游戏和暂停游戏的信息显示
@@ -684,17 +683,15 @@ int main(int argc, char **argv)
 	while (!glfwWindowShouldClose(window))
     { 
 		double currentTime = glfwGetTime();
+		// 如果正在快速下落状态，就以dropFPS的帧率下降。若不在快速下落，就每隔1s自动下落一格
 		if (currentTime - startTime >= (isDropping ? (1.0 / dropFPS) : 1.0)) {
-			// 若已经过去了一秒就向下移动方块
-			/*
-				增加对移动失败的检测，解决到达底部后，不再自动下落引起的判定bug
-			*/
+			// 对移动失败的检测，到达底部后，就安置方块并刷新，且将isDropping设置为false
 			if (!movetile(glm::vec2(0, -1)) ) {
 				settile();
 				newtile();
 				isDropping = false;
 			}
-			startTime = currentTime;
+			startTime = currentTime; // 自动下落触发后，更新迭代时间
 		}
 
         display();
