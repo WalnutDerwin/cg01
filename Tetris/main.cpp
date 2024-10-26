@@ -26,7 +26,7 @@
  * - 2) 退出游戏和暂停游戏的信息显示
  * - 3) 下落位置的预览
  * - 4) 消除效果的特效
- *
+ * - 5) 显示下一方块
  */
 
 #include "include/Angel.h"
@@ -38,9 +38,19 @@
 int starttime;			// 控制方块向下移动时间
 double startTime; // 记录程序开始的时间（用于计算时间变化）
 int rotation = 0;		// 控制当前窗口中的方块旋转
+
+/*
+	新功能：新增next_tile数组表示下一个方块
+*/
 glm::vec2 tile[4];			// 表示当前窗口中的方块
+glm::vec2 next_tile[4]; // 表示下一个方块
+
 bool gameover = false;	// 游戏结束控制变量
-int xsize = 400;		// 窗口大小（尽量不要变动窗口大小！）
+
+/*
+	新功能: 增加窗口宽度以显示左右两侧信息
+*/
+int xsize = 400 * 1.6; // 窗口大小（渲染区域的宽度和高度）
 int ysize = 720;
 
 bool isDropping = false; // 记录是否在快速下落
@@ -137,28 +147,32 @@ glm::vec4 colors[] = {
 	glm::vec4(0.502, 0.525, 0.996, 1.0) // Blue rgb(128, 134, 254)
 };
 
-// 当前方块的位置（以棋盘格的左下角为原点的坐标系）
-glm::vec2 tilepos = glm::vec2(5, 19);
+glm::vec2 tilepos = glm::vec2(5, 19); // 当前方块的位置（以棋盘格的左下角为原点的坐标系）
+glm::vec2 next_tilepos = glm::vec2(13, 10); // 新功能：下一方块的位置
 
-// 当前方块的形状
-int tileshape; // 0~6
+int tileshape; // 表示当前方块的形状，0~6
+int next_tileshape; // 新功能：表示下一方块的形状
 
-// 当前方块的颜色
-glm::vec4 tilecolor;
+glm::vec4 tilecolor; // 当前方块的颜色
+glm::vec4 next_tilecolor; // 新功能：下一个方块的颜色
 
+bool isFirstTile = true; // 新功能：记录是否为第一个方块
 
 // 布尔数组表示棋盘格的某位置是否被方块填充，即board[x][y] = true表示(x,y)处格子被填充。
 // （以棋盘格的左下角为原点的坐标系）
 bool board[board_width][board_height];
 
-// 当棋盘格某些位置被方块填充之后，记录这些位置上被填充的颜色
-glm::vec4 board_colours[points_num];
+glm::vec4 board_colours[points_num]; // 当棋盘格某些位置被方块填充之后，记录这些位置上被填充的颜色
 
 GLuint locxsize;
 GLuint locysize;
 
 GLuint vao[3];
 GLuint vbo[6];
+
+// 新功能：用于表示next_tile的VAO和VBO
+GLuint next_vao;
+GLuint next_vbo[2];
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -204,24 +218,68 @@ void updatetile()
 		glBufferSubData(GL_ARRAY_BUFFER, i*6*sizeof(glm::vec4), 6*sizeof(glm::vec4), newpoints);
 	}
 	glBindVertexArray(0);
-	
+
+}
+
+// 新功能：更新下一个方块的VBO
+void updateNextTile() {
+	glBindBuffer(GL_ARRAY_BUFFER, next_vbo[0]);
+
+	// 每个方块包含四个格子
+	for (int i = 0; i < 4; i++)
+	{
+		// 计算格子的坐标值
+		GLfloat x = next_tilepos.x + next_tile[i].x;
+		GLfloat y = next_tilepos.y + next_tile[i].y;
+
+		glm::vec4 p1 = glm::vec4(tile_width + (x * tile_width), tile_width + (y * tile_width), .4, 1);
+		glm::vec4 p2 = glm::vec4(tile_width + (x * tile_width), tile_width*2 + (y * tile_width), .4, 1);
+		glm::vec4 p3 = glm::vec4(tile_width*2 + (x * tile_width), tile_width + (y * tile_width), .4, 1);
+		glm::vec4 p4 = glm::vec4(tile_width*2 + (x * tile_width), tile_width*2 + (y * tile_width), .4, 1);
+
+		// 每个格子包含两个三角形，所以有6个顶点坐标
+		glm::vec4 newpoints[6] = {p1, p2, p3, p2, p3, p4};
+		glBufferSubData(GL_ARRAY_BUFFER, i*6*sizeof(glm::vec4), 6*sizeof(glm::vec4), newpoints);
+	}
+	glBindVertexArray(0);
+
 }
 
 // 设置当前方块为下一个即将出现的方块。在游戏开始的时候调用来创建一个初始的方块，
 // 在游戏结束的时候判断，没有足够的空间来生成新的方块。
 /*
-	@TODO: 随机生成方块并赋上不同的颜色
+	随机生成方块并赋上不同的颜色
+	新功能：若方块为isFirstTile，则随机生成，否则设置为下一个方块
 */
 void newtile()
 {
+	// 新功能：若为第一个方块
+	if (isFirstTile) {
+		tileshape = rand() % 7; // 随机生成不同形状的方块，使用随机数
+		tilecolor = colors[rand() % 5]; // 随机附上颜色
+		isFirstTile = false;
+	}
+	else {
+		// 非第一方块时，设置当前方块为下一方块
+		tileshape = next_tileshape;
+		tilecolor = next_tilecolor;
+	}
+	// 更新下一方块
+	next_tileshape = rand() % 7;
+	next_tilecolor = colors[rand() % 5];
+
 	// 将新方块放于棋盘格的最上行中间位置并设置默认的旋转方向
 	tilepos = glm::vec2(5 , 19);
 	rotation = 0;
 
-	/* 随机生成不同形状的方块，使用随机数 */
-	tileshape = rand() % 7;
+	// 方块的形状
 	for (int i = 0; i < 4; ++i) {
 		tile[i] = allRotations[tileshape][0][i];
+	}
+
+	// 下一方块的形状
+	for (int i = 0; i < 4; ++i) {
+		next_tile[i] = allRotations[next_tileshape][0][i];
 	}
 
 	/*
@@ -235,11 +293,8 @@ void newtile()
 		}
 	}
 
-
 	updatetile();
-
-	/* 随机附上颜色 */
-	tilecolor = colors[rand() % 5];
+	updateNextTile(); // 更新下一个方块
 
 	// 给新方块赋上颜色
 	glm::vec4 newcolours[24];
@@ -250,7 +305,16 @@ void newtile()
 	glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(newcolours), newcolours);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
 
+	// 给下一个方块赋上颜色
+	for (int i = 0; i < 24; ++i) {
+		newcolours[i] = next_tilecolor;
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, next_vbo[1]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(newcolours), newcolours);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 }
 
@@ -261,7 +325,7 @@ void init()
 	// 包含竖线 board_width+1 条
 	// 包含横线 board_height+1 条
 	// 一条线2个顶点坐标，并且每个顶点一个颜色值
-	
+
 	glm::vec4 gridpoints[board_line_num * 2];
 	glm::vec4 gridcolours[board_line_num * 2];
 
@@ -314,6 +378,7 @@ void init()
 	std::string vshader, fshader;
 	vshader = "shaders/vshader.glsl";
 	fshader = "shaders/fshader.glsl";
+
 	GLuint program = InitShader(vshader.c_str(), fshader.c_str());
 	glUseProgram(program);
 
@@ -375,7 +440,23 @@ void init()
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vColor);
 
-	
+	// 新功能：下一个方块
+	glGenVertexArrays(1, &next_vao); // new
+	glBindVertexArray(next_vao);
+	glGenBuffers(2, &next_vbo[0]);
+
+	// 下一个方块顶点位置
+	glBindBuffer(GL_ARRAY_BUFFER, next_vbo[0]);
+	glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
+	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(vPosition);
+
+	// 下一个方块的顶点颜色
+	glBindBuffer(GL_ARRAY_BUFFER, next_vbo[1]);
+	glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
+	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(vColor);
+
 	glBindVertexArray(0);
 
 	glClearColor(0, 0, 0, 0);
@@ -526,13 +607,20 @@ void display()
 {
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	glViewport(0, 0, 500 * 1.6, 900); // 新功能：设置视口
+
 	glUniform1i(locxsize, xsize);
 	glUniform1i(locysize, ysize);
 
 	glBindVertexArray(vao[1]);
 	glDrawArrays(GL_TRIANGLES, 0, points_num); // 绘制棋盘格 (width * height * 2 个三角形)
+	
 	glBindVertexArray(vao[2]);
 	glDrawArrays(GL_TRIANGLES, 0, 24);	 // 绘制当前方块 (8 个三角形)
+	
+	glBindVertexArray(next_vao);
+	glDrawArrays(GL_TRIANGLES, 0, 24); // 新功能：绘制下一个方块
+
 	glBindVertexArray(vao[0]);
 	glDrawArrays(GL_LINES, 0, board_line_num * 2 );		 // 绘制棋盘格的线
 
@@ -685,8 +773,8 @@ int main(int argc, char **argv)
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	#endif
 
-	// 创建窗口。
-	GLFWwindow* window = glfwCreateWindow(500, 900, "Mid-Term-Skeleton-Code", NULL, NULL);
+	// 创建窗口。glfwCreateWindow传入的窗口的实际大小
+	GLFWwindow* window = glfwCreateWindow(500 * 1.6, 900, "Mid-Term-Skeleton-Code", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window!" << std::endl;
