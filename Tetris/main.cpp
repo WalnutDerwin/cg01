@@ -682,7 +682,7 @@ void display()
 	glDrawArrays(GL_TRIANGLES, 0, 24);	 // 绘制当前方块 (8 个三角形)
 	
 	glBindVertexArray(next_vao);
-	glDrawArrays(GL_TRIANGLES, 0, 24); // 新功能：绘制下一个方块
+	glDrawArrays(GL_TRIANGLES, 0, 24); // 绘制下一个方块
 
 	glBindVertexArray(vao[0]);
 	glDrawArrays(GL_LINES, 0, board_line_num * 2 );		 // 绘制棋盘格的线
