@@ -20,13 +20,14 @@
  * - 已实现的进阶功能如下：
  * - 1) 按空格键可以快速下落 @2024-10-24
  * - 2) 按p键可以暂停游戏 @2024-10-25
+ * - 3) 显示下一个方块 @2024-10-26
  * 
  * - 未实现功能如下：
  * - 1) 随着游戏进行，下落速度加快
  * - 2) 退出游戏和暂停游戏的信息显示
  * - 3) 下落位置的预览
  * - 4) 消除效果的特效
- * - 5) 显示下一方块
+ * - 5) 
  */
 
 #include "include/Angel.h"
@@ -35,52 +36,91 @@
 #include <iostream>
 #include <string>
 
-int starttime;			// 控制方块向下移动时间
-double startTime; // 记录程序开始的时间（用于计算时间变化）
-int rotation = 0;		// 控制当前窗口中的方块旋转
+/**
+ * @brief Tetris基础设定相关的全局变量
+ * 
+ * 这些变量用于控制游戏的基本设置，包括窗口大小、网格大小、顶点数量和网格填充与否等。
+ * 
+ * @details
+ * - 'starttime': 控制方块向下移动时间（未(在init函数中)启用）
+ * - 'startTime': 记录操作开始的时间
+ * - 'xsize': 游戏界面的宽度
+ * - 'ysize': 游戏界面的高度
+ * - 'tile_width': 单个网格的大小
+ * - 'board_width': 网格布的宽
+ * - 'board_height': 网格布的高
+ * - 'board_line_num': 网格线的数量
+ * - 'points_num': 网格三角面片的顶点数量
+ * - 'board[][]': 表示棋盘格的某位置是否被方块填充 
+ * - 'board_colours[]': 记录棋盘格被填充的颜色
+ */
+int starttime; 														// 控制方块向下移动时间
+double startTime; 													// 记录程序开始的时间（用于计算每步操作的时间变化，实现自动下落功能）
+int xsize = 400 * 1.6; 												// 游戏界面宽度，扩大1.6倍以显示更多信息
+int ysize = 720; 													// 游戏界面高度
+int tile_width = 33;												// 单个网格大小
+const int board_width = 10; 										// 网格布的宽
+const int board_height = 20; 										// 网格布的高
+const int board_line_num =  (board_width + 1) + (board_height + 1); // 网格线的数量，竖线 board_width+1 条，横线 board_height+1 条
+const int points_num = board_height * board_width * 6; 				// 网格三角面片的顶点数量（一个网格六个顶点）
+bool board[board_width][board_height]; 								// 表示棋盘格的某位置是否被方块填充，true则为被填充，采用以棋盘格的左下角为原点的坐标系
+glm::vec4 board_colours[points_num]; 								// 当棋盘格某些位置被方块填充之后，记录这些位置上被填充的颜色
 
-/*
-	新功能：新增next_tile数组表示下一个方块
-*/
-glm::vec2 tile[4];			// 表示当前窗口中的方块
-glm::vec2 next_tile[4]; // 表示下一个方块
+/**
+ * @brief 绘制相关的全局变量
+ * 
+ * - 'locxsize': represents the location of the x-size uniform
+ * - 'locysize': represents the location of the y-size uniform
+ */
+GLuint locxsize; 
+GLuint locysize;
+GLuint vao[3]; 		// 用于绘制当前方块
+GLuint vbo[6];
+GLuint next_vao; 	// 用于绘制下一个方块
+GLuint next_vbo[2];
+glm::vec4 orange = glm::vec4(1.0, 0.5, 0.0, 1.0); // 绘制窗口的颜色变量
+glm::vec4 white  = glm::vec4(1.0, 1.0, 1.0, 1.0);
+glm::vec4 black  = glm::vec4(0.0, 0.0, 0.0, 1.0);
 
-bool gameover = false;	// 游戏结束控制变量
+/**
+ * @brief 表示方块的全局变量
+ * 
+ * 这些变量用于表示一个方块的位置、旋转、形状和颜色等。
+ * 
+ * @details
+ * - 'tile[4]': 表示当前方块
+ * - 'next_tile[4]': 表示下一个方块
+ * - 'rotation': 表示当前方块的旋转
+ * - 'tilepos': 表示当前方块的位置
+ * - 'next_tilepos': 表示下一方块的位置
+ * - 'tileshape': 表示当前方块的形状
+ * - 'next_tileshape': 表示下一方块的形状
+ * - 'tilecolor': 表示当前方块的颜色
+ * - 'next_tilecolor': 表示下一方块的颜色
+ * - 'isFirstTile': 表示是否为第一个方块
+ */
+glm::vec2 tile[4];           // 表示当前方块，每个元素是一个坐标（表示的是初始方块，每个元素需加上tilepos才表示真正的位置）
+glm::vec2 next_tile[4];      // 表示下一个方块
+int rotation = 0;            // 控制当前窗口中的方块旋转
+glm::vec2 tilepos = glm::vec2(5, 19);       // 表示当前方块的位置（以棋盘格的左下角为原点的坐标系）
+glm::vec2 next_tilepos = glm::vec2(13, 10); // 表示下一方块的位置
+int tileshape;               // 表示当前方块的形状，对应allRotations数组的第一个索引
+int next_tileshape;          // 表示下一方块的形状
+glm::vec4 tilecolor;         // 表示当前方块的颜色
+glm::vec4 next_tilecolor;    // 表示下一个方块的颜色
+bool isFirstTile = true;     // 记录是否为第一个方块
 
-/*
-	新功能: 增加窗口宽度以显示左右两侧信息
-*/
-int xsize = 400 * 1.6; // 窗口大小（渲染区域的宽度和高度）
-int ysize = 720;
-
-bool isDropping = false; // 记录是否在快速下落
-double quickDropInterval = 1.0 / 90.0; // 设置掉落的动画帧数为90帧
-
-bool isPaused = false; // 记录游戏是否暂停
-
-// 单个网格大小
-int tile_width = 33;
-
-// 网格布大小
-const int board_width = 10;
-const int board_height = 20;
-
-// 网格三角面片的顶点数量
-const int points_num = board_height * board_width * 6;
-
-// 我们用画直线的方法绘制网格
-// 包含竖线 board_width+1 条
-// 包含横线 board_height+1 条
-// 一条线2个顶点坐标
-// 网格线的数量
-const int board_line_num =  (board_width + 1) + (board_height + 1);
-
-/*
-	@TODO: 绘制‘J’、‘Z’等形状的方块
-	二维数组表示tile旋转后可能出现的所有位置
-	[4][4]，4种旋转，一个tile由四个坐标（小块）形成
-*/
-// 定义一个包含所有形状旋转数据的二维数组
+/**
+ * @var glm::vec2 allRotations[i][j][k]
+ * @brief 表示tile旋转后的所有位置
+ * 
+ * 该数组表示了'O', 'I', 'S', 'Z', 'L', 'J'和'T'形状的方块，并描述了它们至多四种旋转状态。
+ * 
+ * @details
+ * i表示形状（0~6代表O, I等形状）
+ * j表示旋转状态（代表某个形状的旋转状态）
+ * k表示点的位置（代表某个形状旋转状态下的坐标数组）
+ */
 glm::vec2 allRotations[7][4][4] = {
     // "O"型 tile
     {
@@ -131,14 +171,33 @@ glm::vec2 allRotations[7][4][4] = {
         {glm::vec2(0, 0), glm::vec2(-1, 0), glm::vec2(1, 0), glm::vec2(0, 1)},
         {glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(0, -1), glm::vec2(-1, 0)}
     }
-};
+}; 
 
-// 绘制窗口的颜色变量
-glm::vec4 orange = glm::vec4(1.0, 0.5, 0.0, 1.0);
-glm::vec4 white  = glm::vec4(1.0, 1.0, 1.0, 1.0);
-glm::vec4 black  = glm::vec4(0.0, 0.0, 0.0, 1.0);
+/**
+ * @brief 表示游戏状态的全局变量
+ * 
+ * 描述游戏的状态，包括结束、暂停和快速下落。
+ * 
+ * @details
+ * - 'gameover': 记录游戏是否结束，true表示游戏结束
+ * - 'isPaused': 记录游戏是否暂停，true表示游戏暂停
+ * 
+ * - 'isDropping': 表示方块处于快速下落状态
+ * - 'quickDropInterval': 控制快速下落的时间间隔
+ */
+bool gameover = false;    // 表示游戏结束与否
+bool isPaused = false;    // 表示游戏是否暂停
+bool isDropping = false;  // 记录是否在快速下落
+double quickDropInterval = 1.0 / 90.0; // 设置掉落的动画帧数为90帧
 
-// 可供方块选择的颜色
+/**
+ * @var glm::vec4 colors[]
+ * @brief 表示所有方块可能填充的颜色
+ * 
+ * @details
+ * 所有颜色都提取了word文档上的颜色
+ * 类似于shape的选择，颜色的随机选择也是依靠于colors数组的索引
+ */
 glm::vec4 colors[] = {
 	glm::vec4(0.976, 0.290, 0.247, 1.0), // Red rgb(249, 74, 63)
 	glm::vec4(0.996, 0.980, 0.243, 1.0), // Yellow rgb(254, 250, 62)
@@ -147,39 +206,20 @@ glm::vec4 colors[] = {
 	glm::vec4(0.502, 0.525, 0.996, 1.0) // Blue rgb(128, 134, 254)
 };
 
-glm::vec2 tilepos = glm::vec2(5, 19); // 当前方块的位置（以棋盘格的左下角为原点的坐标系）
-glm::vec2 next_tilepos = glm::vec2(13, 10); // 新功能：下一方块的位置
-
-int tileshape; // 表示当前方块的形状，0~6
-int next_tileshape; // 新功能：表示下一方块的形状
-
-glm::vec4 tilecolor; // 当前方块的颜色
-glm::vec4 next_tilecolor; // 新功能：下一个方块的颜色
-
-bool isFirstTile = true; // 新功能：记录是否为第一个方块
-
-// 布尔数组表示棋盘格的某位置是否被方块填充，即board[x][y] = true表示(x,y)处格子被填充。
-// （以棋盘格的左下角为原点的坐标系）
-bool board[board_width][board_height];
-
-glm::vec4 board_colours[points_num]; // 当棋盘格某些位置被方块填充之后，记录这些位置上被填充的颜色
-
-GLuint locxsize;
-GLuint locysize;
-
-GLuint vao[3];
-GLuint vbo[6];
-
-// 新功能：用于表示next_tile的VAO和VBO
-GLuint next_vao;
-GLuint next_vbo[2];
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
 }
 
-// 修改棋盘格在pos位置的颜色为colour，并且更新对应的VBO
+/**
+ * @brief 修改颜色并更新VBO的函数
+ * 
+ * @param pos 棋盘格上的位置
+ * @param colour 目标颜色
+ * 
+ * @details
+ * 修改棋盘格在pos位置的颜色为colour，并且更新对应的VBO
+ */
 void changecellcolour(glm::vec2 pos, glm::vec4 colour)
 {
 	// 每个格子是个正方形，包含两个三角形，总共6个定点，并在特定的位置赋上适当的颜色
@@ -221,7 +261,7 @@ void updatetile()
 
 }
 
-// 新功能：更新下一个方块的VBO
+// 更新下一个方块的VBO
 void updateNextTile() {
 	glBindBuffer(GL_ARRAY_BUFFER, next_vbo[0]);
 
@@ -245,15 +285,16 @@ void updateNextTile() {
 
 }
 
-// 设置当前方块为下一个即将出现的方块。在游戏开始的时候调用来创建一个初始的方块，
-// 在游戏结束的时候判断，没有足够的空间来生成新的方块。
-/*
-	随机生成方块并赋上不同的颜色
-	新功能：若方块为isFirstTile，则随机生成，否则设置为下一个方块
-*/
+/**
+ * @brief 生成新方块的函数
+ * 
+ * @details
+ * 判断是否为第一个方块：若是，则随机生成；否则，将下一个方块赋值给当前方块。
+ * 判断有没有足够空间来生成新的方块。（判断游戏结束的条件）
+ */
 void newtile()
 {
-	// 新功能：若为第一个方块
+	// 若为第一个方块
 	if (isFirstTile) {
 		tileshape = rand() % 7; // 随机生成不同形状的方块，使用随机数
 		tilecolor = colors[rand() % 5]; // 随机附上颜色
@@ -264,6 +305,7 @@ void newtile()
 		tileshape = next_tileshape;
 		tilecolor = next_tilecolor;
 	}
+
 	// 更新下一方块
 	next_tileshape = rand() % 7;
 	next_tilecolor = colors[rand() % 5];
@@ -282,9 +324,7 @@ void newtile()
 		next_tile[i] = allRotations[next_tileshape][0][i];
 	}
 
-	/*
-		在生成形状和位置后，检测每个坐标是否被占满。若占满，则说明没有足够空间生成新的方块
-	*/
+	// 在生成形状和位置后，检测每个坐标是否被占满。若占满，则说明没有足够空间生成新的方块
 	for (int i = 0; i < 4; ++i) {
 		int x = tilepos.x + tile[i].x; // 参考updatetitle知道如何计算方块的小格的坐标值
 		int y = tilepos.y + tile[i].y;
@@ -440,7 +480,7 @@ void init()
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vColor);
 
-	// 新功能：下一个方块
+	// 下一个方块
 	glGenVertexArrays(1, &next_vao); // new
 	glBindVertexArray(next_vao);
 	glGenBuffers(2, &next_vbo[0]);
@@ -466,10 +506,15 @@ void init()
 	// starttime = glutGet(GLUT_ELAPSED_TIME);
 }
 
-/*
-	实现方块与方块之间、方块与边界之间的碰撞检测
-*/
-// 检查在cellpos位置的格子是否被填充或者是否在棋盘格的边界范围内
+/**
+ * @brief 判断方块的位置是否合法
+ * 
+ * @param cellpos 判断的方块位置
+ * @return bool 合法则返回true，否则false
+ * 
+ * @details
+ * 检测方块与方块，方块与边界之间的碰撞，也就是检查在cellpos位置的格子是否被填充或者是否在棋盘格的边界范围内
+ */
 bool checkvalid(glm::vec2 cellpos)
 {
 	if((cellpos.x >=0) && (cellpos.x < board_width) && (cellpos.y >= 0) && (cellpos.y < board_height) &&
@@ -500,10 +545,15 @@ void rotate()
 	}
 }
 
-/*
-	检查棋盘格在row行有没有被填充满（若填满，则消除该行，并将上方所有方块向下移动一行）
-	并返回full，如果true则row行满且完成了消除，若false则row行非满
-*/
+/**
+ * @brief 检查是否行满并消除满行的函数
+ * 
+ * @param row 检查的行
+ * @return bool 若返回true，则说明row行满且完成消除；若为false，则row行非满
+ * 
+ * @details
+ * 消除操作：清空该行，并将上方所有方块向下移动一行
+ */
 bool checkfullrow(int row)
 {
 	// 检查row行是否被填满
@@ -543,7 +593,9 @@ bool checkfullrow(int row)
 	return full;
 }
 
-// 放置当前方块（固定在特定的位置），并且更新棋盘格对应位置顶点的颜色VBO
+/**
+ * @brief 放置当前方块在特定位置，并更新棋盘格对应位置顶点的颜色VBO
+ */
 void settile()
 {
 	// 每个格子
@@ -566,15 +618,21 @@ void settile()
 	}
 }
 
-// 给定位置(x,y)，移动方块。有效的移动值为(-1,0)，(1,0)，(0,-1)，分别对应于向
-// 左，向右和向下移动。如果移动成功，返回值为true，反之为false
-// Ps: 此处原注释是错误的，向右和向下写反了，已修正
+/**
+ * @brief 移动方块的函数
+ * 
+ * @param direction 移动的方向值
+ * @return bool 移动成功则返回true
+ * 
+ * @details
+ * 有效的移动值有向左(-1, 0)，向右(1, 0)和向下(0, -1)
+ */
 bool movetile(glm::vec2 direction)
 {
 	// 计算移动之后的方块的位置坐标
 	glm::vec2 newtilepos[4];
 	for (int i = 0; i < 4; i++)
-		newtilepos[i] = tile[i] + tilepos + direction;
+		newtilepos[i] = tile[i] + tilepos + direction; 
 
 	// 检查移动之后的有效性
 	if (checkvalid(newtilepos[0])
@@ -607,7 +665,13 @@ void display()
 {
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glViewport(0, 0, 500 * 1.6, 900); // 新功能：设置视口
+	/**
+	 * glViewport函数用于设置视口
+	 * 
+	 * 前两个参数设定左下角的位置
+	 * 后两个参数需与实际窗口大小相同
+	 */
+	glViewport(0, 0, 500 * 1.6, 900); 
 
 	glUniform1i(locxsize, xsize);
 	glUniform1i(locysize, ysize);
@@ -634,9 +698,7 @@ void reshape(GLsizei w, GLsizei h)
 	glViewport(0, 0, w, h);
 }
 
-/*
-	实现方块的快速下落功能
-*/
+// 设定快速下落状态
 void droptile() {
 	isDropping = true;
 }
@@ -757,7 +819,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 
-
 int main(int argc, char **argv)
 {
 	srand(time(NULL)); // 初始化随机数生成器
@@ -773,7 +834,7 @@ int main(int argc, char **argv)
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	#endif
 
-	// 创建窗口。glfwCreateWindow传入的窗口的实际大小
+	// 创建窗口。glfwCreateWindow传入的窗口的实际大小（为保证比例，将宽度也设置为1.6倍）
 	GLFWwindow* window = glfwCreateWindow(500 * 1.6, 900, "Mid-Term-Skeleton-Code", NULL, NULL);
 	if (window == NULL)
 	{
