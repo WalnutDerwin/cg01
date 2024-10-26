@@ -33,6 +33,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <iomanip>
 #include <string>
 
 /**
@@ -185,7 +186,7 @@ glm::vec2 allRotations[7][4][4] = {
  * - 'quickDropInterval': 控制快速下落的时间间隔
  */
 bool gameover = false;    // 表示游戏结束与否
-bool isPaused = false;    // 表示游戏是否暂停
+bool isPaused = true;    // 表示游戏是否暂停
 bool isDropping = false;  // 记录是否在快速下落
 double quickDropInterval = 1.0 / 90.0; // 设置掉落的动画帧数为90帧
 
@@ -200,14 +201,68 @@ double quickDropInterval = 1.0 / 90.0; // 设置掉落的动画帧数为90帧
 glm::vec4 colors[] = {
 	glm::vec4(0.976, 0.290, 0.247, 1.0), // Red rgb(249, 74, 63)
 	glm::vec4(0.996, 0.980, 0.243, 1.0), // Yellow rgb(254, 250, 62)
-	glm::vec4(1.0, 0.627, 0.235, 1.0), // Orange rgb(255, 160, 60)
-	glm::vec4(1.0, 0.541, 1.0, 1.0), // Purple rgb(255, 138, 255)
-	glm::vec4(0.502, 0.525, 0.996, 1.0) // Blue rgb(128, 134, 254)
+	glm::vec4(1.0, 0.627, 0.235, 1.0),   // Orange rgb(255, 160, 60)
+	glm::vec4(1.0, 0.541, 1.0, 1.0),     // Purple rgb(255, 138, 255)
+	glm::vec4(0.502, 0.525, 0.996, 1.0)  // Blue rgb(128, 134, 254)
 };
+
+/**
+ * @brief 实现积分功能
+ * 
+ * @details
+ * - 'score': 表示当前的分数
+ */
+int score = 0; // 当前的分数
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
+}
+
+// 输出游戏提示信息
+void printPrompt() {
+    // ANSI 颜色代码
+    const std::string YELLOW = "\033[38;2;245;201;254m";      // 金色
+    const std::string BRIGHT_YELLOW = "\033[38;2;104;214;255m"; // 亮金色
+    const std::string WHITE = "\033[38;2;1;69;181m";       // 亮白色
+    const std::string RESET = "\033[0m";        // 重置颜色
+
+    // 首先输出像素风格的 TETRIS 标题
+    std::cout << YELLOW << R"(
+    ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄)" << RESET << std::endl;
+    std::cout << BRIGHT_YELLOW << R"(    ████████╗)" << WHITE << R"(███████╗)" << BRIGHT_YELLOW << R"(████████╗)" << WHITE << R"(██████╗ )" << BRIGHT_YELLOW << R"(██╗)" << WHITE << R"(███████╗)" << RESET << std::endl;
+    std::cout << BRIGHT_YELLOW << R"(    ╚══██╔══╝)" << WHITE << R"(██╔════╝)" << BRIGHT_YELLOW << R"(╚══██╔══╝)" << WHITE << R"(██╔══██╗)" << BRIGHT_YELLOW << R"(██║)" << WHITE << R"(██╔════╝)" << RESET << std::endl;
+    std::cout << BRIGHT_YELLOW << R"(       ██║   )" << WHITE << R"(█████╗  )" << BRIGHT_YELLOW << R"(   ██║   )" << WHITE << R"(██████╔╝)" << BRIGHT_YELLOW << R"(██║)" << WHITE << R"(███████╗)" << RESET << std::endl;
+    std::cout << YELLOW << R"(       ██║   )" << WHITE << R"(██╔══╝  )" << YELLOW << R"(   ██║   )" << WHITE << R"(██╔══██╗)" << YELLOW << R"(██║)" << WHITE << R"(╚════██║)" << RESET << std::endl;
+    std::cout << YELLOW << R"(       ██║   )" << WHITE << R"(███████╗)" << YELLOW << R"(   ██║   )" << WHITE << R"(██║  ██║)" << YELLOW << R"(██║)" << WHITE << R"(███████║)" << RESET << std::endl;
+    std::cout << YELLOW << R"(       ╚═╝   ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝╚══════╝)" << RESET << std::endl;
+    std::cout << YELLOW << R"(    ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄)" << RESET << std::endl;
+    std::cout << "        ========================================" << std::endl;
+    std::cout << "        |        Welcome to Tetris             |" << std::endl;
+    std::cout << "        |        Created by Dianhao He         |" << std::endl;
+    std::cout << "        ========================================" << std::endl;
+    std::cout << "        | Controls:                            |" << std::endl;
+    std::cout << "        |--------------------------------------|" << std::endl;
+    std::cout << "        |  ↑ - Rotate                          |" << std::endl;
+    std::cout << "        |  ↓ - Move down                       |" << std::endl;
+    std::cout << "        |  ← - Move left                       |" << std::endl;
+    std::cout << "        |  → - Move right                      |" << std::endl;
+    std::cout << "        |  Space - Accelerate                  |" << std::endl;
+    std::cout << "        |  P - Pause or Continue               |" << std::endl;
+    std::cout << "        |  R - Restart                         |" << std::endl;
+    std::cout << "        |  Q or ESC - Exit                     |" << std::endl;
+    std::cout << "        ========================================" << std::endl;
+    std::cout << "        |        Press P to START!             |" << std::endl;
+    std::cout << "        ========================================" << std::endl;
+    std::cout << std::endl;
+}
+
+// 输出当前分数
+void printScore() {
+	std::cout << std::setfill('-') << std::setw(10) << " " << std::endl;
+	std::cout << "Score: " + score << std::endl;
+	std::cout << std::setfill('-') << std::setw(10) << " " << std::setfill(' ') << std::endl;
+	std::cout << std::endl;
 }
 
 /**
@@ -360,6 +415,8 @@ void newtile()
 // 游戏和OpenGL初始化
 void init()
 {
+	printPrompt();
+
 	// 初始化棋盘格，这里用画直线的方法绘制网格
 	// 包含竖线 board_width+1 条
 	// 包含横线 board_height+1 条
@@ -587,6 +644,10 @@ bool checkfullrow(int row)
 			board[col][board_height - 1] = false; // 恢复为没有填充的状态
 			changecellcolour(glm::vec2(col, board_height - 1), black); // 改变颜色为默认初始的黑色
 		}
+
+		score += 10; // 得分增加
+
+		printScore();
 	}
 
 	return full;
