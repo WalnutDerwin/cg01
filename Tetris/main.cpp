@@ -23,7 +23,7 @@
  * - 2) 支持按P键暂停游戏 @2024-10-25
  * - 3) 显示下一个方块 @2024-10-26
  * - 4) 记分系统：游戏开始时显示排行榜（保存到文件中的排行榜）；游玩结束时，要求玩家输入名称并输出游玩信息（名称、分数和排名） @2024-10-27
- * - 5) 随着分数提高，下落速度加快（可扩展为难度系统） @2024-10-27
+ * - 5) 下落速度变化：随着分数提高，下落速度加快（可扩展为难度系统） @2024-10-27
  * 
  * - 未实现功能如下：
  * - 1) 预览方块功能：显示方块即将下落到的位置
@@ -43,22 +43,9 @@
  * @brief Tetris基础设定相关的全局变量
  * 
  * 这些变量用于控制游戏的基本设置，包括窗口大小、网格大小、顶点数量和网格填充与否等。
- * 
- * @details
- * - 'starttime': 控制方块向下移动时间（未(在init函数中)启用）
- * - 'startTime': 记录操作开始的时间
- * - 'xsize': 游戏界面的宽度
- * - 'ysize': 游戏界面的高度
- * - 'tile_width': 单个网格的大小
- * - 'board_width': 网格布的宽
- * - 'board_height': 网格布的高
- * - 'board_line_num': 网格线的数量
- * - 'points_num': 网格三角面片的顶点数量
- * - 'board[][]': 表示棋盘格的某位置是否被方块填充 
- * - 'board_colours[]': 记录棋盘格被填充的颜色
  */
-int starttime; 														// 控制方块向下移动时间
-double startTime; 													// 记录程序开始的时间（用于计算每步操作的时间变化，实现自动下落功能）
+int starttime; 														// 控制方块向下移动时间（未(在init函数中)启用）
+double startTime; 													// 记录操作开始的时间（用于计算每步操作的时间变化，实现自动下落功能）
 int xsize = 400 * 1.6; 												// 游戏界面宽度，扩大1.6倍以显示更多信息
 int ysize = 720; 													// 游戏界面高度
 int tile_width = 33;												// 单个网格大小
@@ -67,16 +54,13 @@ const int board_height = 20; 										// 网格布的高
 const int board_line_num =  (board_width + 1) + (board_height + 1); // 网格线的数量，竖线 board_width+1 条，横线 board_height+1 条
 const int points_num = board_height * board_width * 6; 				// 网格三角面片的顶点数量（一个网格六个顶点）
 bool board[board_width][board_height]; 								// 表示棋盘格的某位置是否被方块填充，true则为被填充，采用以棋盘格的左下角为原点的坐标系
-glm::vec4 board_colours[points_num]; 								// 当棋盘格某些位置被方块填充之后，记录这些位置上被填充的颜色
+glm::vec4 board_colours[points_num]; 								// 记录棋盘格被填充的颜色，当棋盘格某些位置被方块填充之后，记录这些位置上被填充的颜色
 
 /**
  * @brief 绘制相关的全局变量
- * 
- * - 'locxsize': represents the location of the x-size uniform
- * - 'locysize': represents the location of the y-size uniform
  */
-GLuint locxsize; 
-GLuint locysize;
+GLuint locxsize;    // represents the location of the x-size uniform
+GLuint locysize;    // represents the location of the y-size uniform
 GLuint vao[3]; 		// 用于绘制当前方块
 GLuint vbo[6];
 GLuint next_vao; 	// 用于绘制下一个方块
@@ -89,18 +73,6 @@ glm::vec4 black  = glm::vec4(0.0, 0.0, 0.0, 1.0);
  * @brief 表示方块的全局变量
  * 
  * 这些变量用于表示一个方块的位置、旋转、形状和颜色等。
- * 
- * @details
- * - 'tile[4]': 表示当前方块
- * - 'next_tile[4]': 表示下一个方块
- * - 'rotation': 表示当前方块的旋转
- * - 'tilepos': 表示当前方块的位置
- * - 'next_tilepos': 表示下一方块的位置
- * - 'tileshape': 表示当前方块的形状
- * - 'next_tileshape': 表示下一方块的形状
- * - 'tilecolor': 表示当前方块的颜色
- * - 'next_tilecolor': 表示下一方块的颜色
- * - 'isFirstTile': 表示是否为第一个方块
  */
 glm::vec2 tile[4];           // 表示当前方块，每个元素是一个坐标（表示的是初始方块，每个元素需加上tilepos才表示真正的位置）
 glm::vec2 next_tile[4];      // 表示下一个方块
@@ -182,21 +154,24 @@ glm::vec2 allRotations[7][4][4] = {
  * 描述游戏的状态，包括结束、暂停、快速下落和正常下落。
  * 
  * @details
- * - 'gameover': 记录游戏是否结束，true表示游戏结束
- * - 'isPaused': 记录游戏是否暂停，true表示游戏暂停
+ * - 游戏状态的记录
+ * - 'gameover'
+ * - 'isPaused'
  * 
- * - 'isDropping': 表示方块处于快速下落状态
- * - 'quickDropInterval': 控制快速下落的时间间隔
+ * - 快速下落功能
+ * - 'isDropping'
+ * - 'quickDropInterval'
  * 
- * - 'normalDropInterval': 表示正常下落的时间间隔
- * - 'currentDropInterval': 表示当前下落的时间间隔
- * - 'maxDropInterval': 表示最大下落时间间隔
+ * - 下落速度变化功能
+ * - 'normalDropInterval'
+ * - 'currentDropInterval'
+ * - 'maxDropInterval'
  * 
  */
-bool gameover = false;    // 表示游戏结束与否
-bool isPaused = true;     // 表示游戏是否暂停
+bool gameover = false;    // 记录游戏是否结束，true表示游戏结束
+bool isPaused = true;     // 记录游戏是否暂停，true表示游戏暂停
 bool isDropping = false;  // 记录是否在快速下落
-double quickDropInterval = 1.0 / 90.0; // 设置掉落的动画帧数为90帧
+double quickDropInterval = 1.0 / 90.0; // 控制快速下落的时间间隔，设置掉落的动画帧数为90帧
 double normalDropInterval = 1.0;       // 记录正常下落的时间间隔
 double currentDropInterval;            // 记录当前下落的时间间隔
 const double maxDropInterval = 0.2;    // 表示最大下落时间间隔
