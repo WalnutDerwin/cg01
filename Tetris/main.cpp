@@ -16,24 +16,25 @@
  * - 7) 棋盘格中每一行填充满之后自动消除 @2024-10-24
  * - 8) 占满后游戏结束（能够检测到游戏结束条件）@2024-10-24
  * - 9) 支持按R键可以重新开始游戏 @2024-10-24
- * - 10) 控制台显示游戏说明和得分信息 @2024-10-27
+ * - 10) 显示游戏说明 @2024-10-27
  * 
  * - 已实现的进阶功能如下：
  * - 1) 按空格键可以快速下落 @2024-10-24
  * - 2) 支持按P键暂停游戏 @2024-10-25
  * - 3) 显示下一个方块 @2024-10-26
- * - 4) 基础的记分功能 @2024-10-27
+ * - 4) 记分系统：游戏开始时显示排行榜（保存到文件中的排行榜）；游玩结束时，要求玩家输入名称并输出游玩信息（名称、分数和排名） @2024-10-27
  * 
  * - 未实现功能如下：
- * - 1) 随着游戏进行，下落速度加快
- * - 2) 退出游戏和暂停游戏的信息显示
- * - 3) 下落位置的预览
- * - 4) 消除效果的特效
+ * - 1) 难度系统：随着分数提高，难度越来越大
+ * - 2) 预览方块功能：显示方块即将下落到的位置
  */
 
 #include "include/Angel.h"
 
+#include <algorithm>
 #include <cstdlib>
+#include <fstream> // 用于实现记分功能 
+#include <vector>
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -209,12 +210,125 @@ glm::vec4 colors[] = {
 };
 
 /**
- * @brief 实现积分功能
+ * @brief 用于实现记分系统的全局变量
  * 
  * @details
- * - 'score': 表示当前的分数
+ * - 'TETRIS_RANKING': 记录排行榜文件的路径
+ * - 'Ranking': vector用于存储排行榜信息
+ * - 'curr_user': 表示当前玩家
+ * - 'UserInfo': 结构体用于记录用户名和游玩分数
  */
-int score = 0; // 记录当前的分数
+const std::string TETRIS_RANKING = "Tetris_Ranking.txt"; // 表示排行榜文件的路径
+struct UserInfo {
+	std::string user_name; // 表示用户名
+	int score; // 表示游玩分数
+
+	UserInfo(const std::string _name = "", int _score = 0) {
+		user_name = _name;
+		score = _score;
+	}
+};
+UserInfo curr_user;
+std::vector<UserInfo> Ranking; // 记录当前排行榜
+
+/**
+ * @brief 加载排行榜文件到Ranking数组中
+ */
+void loadRanking() {
+	std::ifstream tetris_ranking(TETRIS_RANKING);
+	if (tetris_ranking.is_open()) {
+		UserInfo user_info;
+		while (tetris_ranking >> user_info.user_name >> user_info.score) {
+			Ranking.push_back(user_info);
+		}
+		tetris_ranking.close();
+	}
+}
+
+/**
+ * @brief 实现从大到小降序排序的比较函数
+ */
+bool cmp(UserInfo u1, UserInfo u2) {
+	return u1.score > u2.score;
+}
+
+/**
+ * @brief 添加游玩信息
+ */
+void addScore(const std::string& name, int user_score) {
+	Ranking.push_back(UserInfo(name, user_score));
+	std::sort(Ranking.begin(), Ranking.end(), cmp);
+}
+
+/**
+ * @brief 根据新用户的信息，更新并保存排行榜文件
+ */
+void saveRanking() {
+	std::ofstream tetris_ranking(TETRIS_RANKING); // 清空文件并重新写入
+	if (tetris_ranking.is_open()) {
+		for (UserInfo user : Ranking) {
+			tetris_ranking << user.user_name << " " << user.score << std::endl;
+		}
+		tetris_ranking.close();
+	}
+}
+
+/**
+ * @brief 输出排行榜至多前三名
+ */
+void printRanking() {
+    std::cout << "========================================" << std::endl;
+    std::cout << "|           Tetris Leaderboard         |" << std::endl;
+    std::cout << "========================================" << std::endl;
+    std::cout << "| Rank | Username       | Score        |" << std::endl;
+    std::cout << "----------------------------------------" << std::endl;
+
+    for (size_t i = 0; i < Ranking.size() && i < 3; ++i) {
+        std::cout << "  " << std::setw(4) << std::left << i + 1 << "   "
+                  << std::setw(14) << std::left << Ranking[i].user_name << "   "
+                  << std::setw(11) << std::left << Ranking[i].score << "  " << std::endl;
+    }
+
+    std::cout << "========================================" << std::endl;
+    std::cout << std::endl;
+}
+
+/**
+ * @brief 游玩结束时保存并输出游玩信息
+ */
+void remindGameOver() {
+	gameover = true; // 更改为游戏结束的状态
+
+	std::cout << "Enter your name to keep your score: ";
+	std::cin >> curr_user.user_name; // 输入用户名
+
+	addScore(curr_user.user_name, curr_user.score); // 添加当前用户的游玩信息
+	saveRanking(); // 保存更新后的所有游玩信息
+
+	// 计算当前玩家的排名
+	int rank = 1;
+	for (const auto& user : Ranking) {
+		if (user.user_name == curr_user.user_name && user.score == curr_user.score) {
+			break;
+		}
+		rank++;
+	}
+
+	 // 格式化输出游玩信息
+    std::cout << "========================================" << std::endl;
+    std::cout << "|           Game Over!                 |" << std::endl;
+    std::cout << "========================================" << std::endl;
+    std::cout << "  Player: " << std::setw(30) << std::left << curr_user.user_name << std::endl;
+    std::cout << "  Score:  " << std::setw(30) << std::left << curr_user.score << std::endl;
+	std::cout << "  Rank:   " << std::setw(30) << std::left << rank << std::endl;
+    std::cout << "========================================" << std::endl;
+	
+	// 提示下一步操作
+	std::cout << "========================================" << std::endl;
+    std::cout << "| Press R to Restart or Q/ESC to Quit  |" << std::endl;
+    std::cout << "========================================" << std::endl;
+    std::cout << std::endl;
+}
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -227,23 +341,23 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
  * @details 在游戏开始时，打印出欢迎信息，游戏操作手册以及如何开始游戏。
  */
 void printPrompt() {
-    std::cout << "========================================" << std::endl;
-    std::cout << "|        Welcome to Tetris             |" << std::endl;
-    std::cout << "|        Created by Dianhao He         |" << std::endl;
-    std::cout << "========================================" << std::endl;
-    std::cout << "| Controls:                            |" << std::endl;
-    std::cout << "|--------------------------------------|" << std::endl;
-    std::cout << "|  ↑ - Rotate                          |" << std::endl;
-    std::cout << "|  ↓ - Move down                       |" << std::endl;
-    std::cout << "|  ← - Move left                       |" << std::endl;
-    std::cout << "|  → - Move right                      |" << std::endl;
-    std::cout << "|  Space - Accelerate                  |" << std::endl;
-    std::cout << "|  P - Pause or Continue               |" << std::endl;
-    std::cout << "|  R - Restart                         |" << std::endl;
-    std::cout << "|  Q or ESC - Exit                     |" << std::endl;
-    std::cout << "========================================" << std::endl;
-    std::cout << "|        Press P to START!             |" << std::endl;
-    std::cout << "========================================" << std::endl;
+    std::cout << "=========================================" << std::endl;
+    std::cout << "|         Welcome to Tetris             |" << std::endl;
+    std::cout << "|         Created by Dianhao He         |" << std::endl;
+    std::cout << "=========================================" << std::endl;
+    std::cout << "| Controls:                             |" << std::endl;
+    std::cout << "|---------------------------------------|" << std::endl;
+    std::cout << "|  ↑ - Rotate                           |" << std::endl;
+    std::cout << "|  ↓ - Move down                        |" << std::endl;
+    std::cout << "|  ← - Move left                        |" << std::endl;
+    std::cout << "|  → - Move right                       |" << std::endl;
+    std::cout << "|  Space - Accelerate                   |" << std::endl;
+    std::cout << "|  P - Pause or Continue                |" << std::endl;
+    std::cout << "|  R - Restart                          |" << std::endl;
+    std::cout << "|  Q or ESC - Exit                      |" << std::endl;
+    std::cout << "=========================================" << std::endl;
+    std::cout << "|         Press P to START!             |" << std::endl;
+    std::cout << "=========================================" << std::endl;
     std::cout << std::endl;
 }
 
@@ -252,7 +366,7 @@ void printPrompt() {
  */
 void printScore() {
 	std::cout << std::setfill('-') << std::setw(10) << " " << std::endl;
-	std::cout << "Score: " << score << std::endl;
+	std::cout << "Score: " << curr_user.score << std::endl;
 	std::cout << std::setfill('-') << std::setw(10) << " " << std::setfill(' ') << std::endl;
 	std::cout << std::endl;
 }
@@ -375,7 +489,8 @@ void newtile()
 		int x = tilepos.x + tile[i].x; // 参考updatetitle知道如何计算方块的小格的坐标值
 		int y = tilepos.y + tile[i].y;
 		if (board[x][y]) {
-			exit(EXIT_SUCCESS);  // 结束游戏
+			remindGameOver(); // 结束游戏并显示信息
+			return; // 直接返回
 		}
 	}
 
@@ -407,9 +522,14 @@ void newtile()
 // 游戏和OpenGL初始化
 void init()
 {
-	system("cls"); 	// 控制台清空
-	score = 0; 	    // 重新设置分数为0
-	printPrompt();  // 输出游戏提示信息
+	system("cls"); 	 			// 控制台清空
+	Ranking.clear(); 			// 清空Ranking数组
+	curr_user.score = 0; 	    // 重新设置分数为0
+	curr_user.user_name = "Secret";   // 重新设置游戏名称为Secret
+
+	printPrompt();   // 输出游戏提示信息
+	loadRanking();   // 加载排行榜信息
+	printRanking();  // 输出排行榜信息
 
 	// 初始化棋盘格，这里用画直线的方法绘制网格
 	// 包含竖线 board_width+1 条
@@ -674,7 +794,7 @@ void settile()
 
 	// 根据消除的行数增加得分
 	if (linesClearedCounter) {
-		score += linesClearedCounter * 10; // 每消除一行增加10分
+		curr_user.score += linesClearedCounter * 10; // 每消除一行增加10分
 		printScore(); // 统一输出分数
 	}
 }
@@ -775,12 +895,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		}
 	}
 
-	// 暂停时
-	if (isPaused) {
+	// 暂停或游玩结束时可以重新开始或退出游戏
+	if (isPaused || gameover) {
 		// 结束游戏
 		if (key == GLFW_KEY_ESCAPE || key == GLFW_KEY_Q) {
 			if(action == GLFW_PRESS){
-					exit(EXIT_SUCCESS); // 结束游戏
+				exit(EXIT_SUCCESS); // 结束游戏
 			}
 		}
 		// 重新启动游戏
@@ -917,8 +1037,8 @@ int main(int argc, char **argv)
 
 	while (!glfwWindowShouldClose(window))
     { 
-		// 非暂停情况，才自动下落
-		if (!isPaused) {
+		// 游戏暂停或游玩结束时，不自动下落
+		if (!isPaused && !gameover) {
 			double currentTime = glfwGetTime();
 			// 如果正在快速下落状态，就以dropFPS的帧率下降。若不在快速下落，就每隔1s自动下落一格
 			if (currentTime - startTime >= (isDropping ? quickDropInterval : 1.0)) {
