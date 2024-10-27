@@ -23,10 +23,10 @@
  * - 2) 支持按P键暂停游戏 @2024-10-25
  * - 3) 显示下一个方块 @2024-10-26
  * - 4) 记分系统：游戏开始时显示排行榜（保存到文件中的排行榜）；游玩结束时，要求玩家输入名称并输出游玩信息（名称、分数和排名） @2024-10-27
+ * - 5) 随着分数提高，下落速度加快（可扩展为难度系统） @2024-10-27
  * 
  * - 未实现功能如下：
- * - 1) 难度系统：随着分数提高，难度越来越大
- * - 2) 预览方块功能：显示方块即将下落到的位置
+ * - 1) 预览方块功能：显示方块即将下落到的位置
  */
 
 #include "include/Angel.h"
@@ -179,7 +179,7 @@ glm::vec2 allRotations[7][4][4] = {
 /**
  * @brief 表示游戏状态的全局变量
  * 
- * 描述游戏的状态，包括结束、暂停和快速下落。
+ * 描述游戏的状态，包括结束、暂停、快速下落和正常下落。
  * 
  * @details
  * - 'gameover': 记录游戏是否结束，true表示游戏结束
@@ -187,11 +187,19 @@ glm::vec2 allRotations[7][4][4] = {
  * 
  * - 'isDropping': 表示方块处于快速下落状态
  * - 'quickDropInterval': 控制快速下落的时间间隔
+ * 
+ * - 'normalDropInterval': 表示正常下落的时间间隔
+ * - 'currentDropInterval': 表示当前下落的时间间隔
+ * - 'maxDropInterval': 表示最大下落时间间隔
+ * 
  */
 bool gameover = false;    // 表示游戏结束与否
-bool isPaused = true;    // 表示游戏是否暂停
+bool isPaused = true;     // 表示游戏是否暂停
 bool isDropping = false;  // 记录是否在快速下落
 double quickDropInterval = 1.0 / 90.0; // 设置掉落的动画帧数为90帧
+double normalDropInterval = 1.0;       // 记录正常下落的时间间隔
+double currentDropInterval;            // 记录当前下落的时间间隔
+const double maxDropInterval = 0.2;    // 表示最大下落时间间隔
 
 /**
  * @var glm::vec4 colors[]
@@ -526,6 +534,7 @@ void init()
 	Ranking.clear(); 			// 清空Ranking数组
 	curr_user.score = 0; 	    // 重新设置分数为0
 	curr_user.user_name = "Secret";   // 重新设置游戏名称为Secret
+	currentDropInterval = normalDropInterval; // 将下落时间间隔重新设置为正常下落的时间间隔
 
 	printPrompt();   // 输出游戏提示信息
 	loadRanking();   // 加载排行榜信息
@@ -796,6 +805,12 @@ void settile()
 	if (linesClearedCounter) {
 		curr_user.score += 10 * linesClearedCounter * (linesClearedCounter + 1);
 		printScore(); // 统一输出分数
+
+		// 根据当前分数调整下落速度
+		currentDropInterval = normalDropInterval - (curr_user.score / 650.0);
+		if (currentDropInterval < maxDropInterval) {
+			currentDropInterval = maxDropInterval; // 重新设置为最小下落时间间隔
+		}
 	}
 }
 
@@ -1041,7 +1056,7 @@ int main(int argc, char **argv)
 		if (!isPaused && !gameover) {
 			double currentTime = glfwGetTime();
 			// 如果正在快速下落状态，就以dropFPS的帧率下降。若不在快速下落，就每隔1s自动下落一格
-			if (currentTime - startTime >= (isDropping ? quickDropInterval : 1.0)) {
+			if (currentTime - startTime >= (isDropping ? quickDropInterval : currentDropInterval)) {
 				// 对移动失败的检测，到达底部后，就安置方块并刷新，且将isDropping设置为false
 				if (!movetile(glm::vec2(0, -1)) ) {
 					settile();
