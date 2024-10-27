@@ -24,9 +24,7 @@
  * - 3) 显示下一个方块 @2024-10-26
  * - 4) 记分系统：游戏开始时显示排行榜（保存到文件中的排行榜）；游玩结束时，要求玩家输入名称并输出游玩信息（名称、分数和排名） @2024-10-27
  * - 5) 下落速度变化：随着分数提高，下落速度加快（可扩展为难度系统） @2024-10-27
- * 
- * - 未实现功能如下：
- * - 1) 预览方块功能：显示方块即将下落到的位置
+ * - 6) 预览方块功能：显示方块即将下落到的位置 @2024-10-27
  */
 
 #include "include/Angel.h"
@@ -65,9 +63,12 @@ GLuint vao[3]; 		// 用于绘制当前方块
 GLuint vbo[6];
 GLuint next_vao; 	// 用于绘制下一个方块
 GLuint next_vbo[2];
-glm::vec4 orange = glm::vec4(1.0, 0.5, 0.0, 1.0); // 绘制窗口的颜色变量
+GLuint preview_vao; // 用于绘制预览方块
+GLuint preview_vbo[2];
+glm::vec4 orange = glm::vec4(1.0, 0.5, 0.0, 1.0);    // 绘制窗口的颜色变量
 glm::vec4 white  = glm::vec4(1.0, 1.0, 1.0, 1.0);
 glm::vec4 black  = glm::vec4(0.0, 0.0, 0.0, 1.0);
+glm::vec4 grey   = glm::vec4(0.46, 0.46, 0.46, 1.0); // 表示预览方块的颜色 RGB(119, 119, 119)
 
 /**
  * @brief 表示方块的全局变量
@@ -76,13 +77,17 @@ glm::vec4 black  = glm::vec4(0.0, 0.0, 0.0, 1.0);
  */
 glm::vec2 tile[4];           // 表示当前方块，每个元素是一个坐标（表示的是初始方块，每个元素需加上tilepos才表示真正的位置）
 glm::vec2 next_tile[4];      // 表示下一个方块
+glm::vec2 preview_tile[4];   // 表示预览方块
 int rotation = 0;            // 控制当前窗口中的方块旋转
 glm::vec2 tilepos = glm::vec2(5, 19);       // 表示当前方块的位置（以棋盘格的左下角为原点的坐标系）
 glm::vec2 next_tilepos = glm::vec2(13, 10); // 表示下一方块的位置
+glm::vec2 preview_tilepos;        // 表示预览方块的位置
 int tileshape;               // 表示当前方块的形状，对应allRotations数组的第一个索引
 int next_tileshape;          // 表示下一方块的形状
+int preview_tileshape;       // 表示预览方块的形状
 glm::vec4 tilecolor;         // 表示当前方块的颜色
 glm::vec4 next_tilecolor;    // 表示下一个方块的颜色
+glm::vec4 preview_tilecolor = grey; 		// 表示预览方块的颜色
 bool isFirstTile = true;     // 记录是否为第一个方块
 
 /**
@@ -428,6 +433,31 @@ void updateNextTile() {
 
 }
 
+// 更新预览方块的VBO
+void updatePreviewTile() {
+	glBindBuffer(GL_ARRAY_BUFFER, preview_vbo[0]);
+
+	// 每个方块包含四个格子
+	for (int i = 0; i < 4; i++)
+	{
+		// 计算格子的坐标值
+		GLfloat x = preview_tilepos.x + preview_tile[i].x;
+		GLfloat y = preview_tilepos.y + preview_tile[i].y;
+
+		glm::vec4 p1 = glm::vec4(tile_width + (x * tile_width), tile_width + (y * tile_width), .4, 1);
+		glm::vec4 p2 = glm::vec4(tile_width + (x * tile_width), tile_width*2 + (y * tile_width), .4, 1);
+		glm::vec4 p3 = glm::vec4(tile_width*2 + (x * tile_width), tile_width + (y * tile_width), .4, 1);
+		glm::vec4 p4 = glm::vec4(tile_width*2 + (x * tile_width), tile_width*2 + (y * tile_width), .4, 1);
+
+		// 每个格子包含两个三角形，所以有6个顶点坐标
+		glm::vec4 newpoints[6] = {p1, p2, p3, p2, p3, p4};
+		glBufferSubData(GL_ARRAY_BUFFER, i*6*sizeof(glm::vec4), 6*sizeof(glm::vec4), newpoints);
+	}
+	glBindVertexArray(0);
+}
+
+void calculatePreviewTile();
+
 /**
  * @brief 生成新方块的函数
  * 
@@ -467,6 +497,13 @@ void newtile()
 		next_tile[i] = allRotations[next_tileshape][0][i];
 	}
 
+	// 更新预览方块
+	preview_tileshape = tileshape;
+	for (int i = 0; i < 4; ++i) {
+		preview_tile[i] = allRotations[preview_tileshape][0][i];
+	}
+	calculatePreviewTile();
+
 	// 在生成形状和位置后，检测每个坐标是否被占满。若占满，则说明没有足够空间生成新的方块
 	for (int i = 0; i < 4; ++i) {
 		int x = tilepos.x + tile[i].x; // 参考updatetitle知道如何计算方块的小格的坐标值
@@ -478,7 +515,8 @@ void newtile()
 	}
 
 	updatetile();
-	updateNextTile(); // 更新下一个方块
+	updateNextTile();    // 更新下一个方块
+	updatePreviewTile(); // 更新预览方块
 
 	// 给新方块赋上颜色
 	glm::vec4 newcolours[24];
@@ -497,6 +535,16 @@ void newtile()
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, next_vbo[1]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(newcolours), newcolours);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	// 给预览方块赋上颜色
+	for (int i = 0; i < 24; ++i) {
+		newcolours[i] = preview_tilecolor;
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, preview_vbo[1]);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(newcolours), newcolours);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -651,6 +699,23 @@ void init()
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vColor);
 
+	// 预览方块
+	glGenVertexArrays(1, &preview_vao); // new
+	glBindVertexArray(preview_vao);
+	glGenBuffers(2, &preview_vbo[0]);
+
+	// 预览方块顶点位置
+	glBindBuffer(GL_ARRAY_BUFFER, preview_vbo[0]);
+	glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
+	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(vPosition);
+
+	// 预览方块顶点颜色
+	glBindBuffer(GL_ARRAY_BUFFER, preview_vbo[1]);
+	glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
+	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(vColor);
+
 	glBindVertexArray(0);
 
 	glClearColor(0, 0, 0, 0);
@@ -696,6 +761,9 @@ void rotate()
 			tile[i] = allRotations[tileshape][rotation][i];
 
 		updatetile();
+
+		// 计算预览方块的位置
+		calculatePreviewTile();
 	}
 }
 
@@ -817,6 +885,9 @@ bool movetile(glm::vec2 direction)
 
 			updatetile();
 
+			// 计算预览方块的位置
+			calculatePreviewTile();
+
 			return true;
 		}
 
@@ -829,6 +900,43 @@ void restart()
 	init(); 				   // 重新初始化
 	gameover = false; 		   // 重新设置gameover为false（使得游戏结束后可以重新开始游戏）
 	startTime = glfwGetTime(); // 更新时间
+}
+
+/**
+ * @brief 计算预览方块的位置
+ * 
+ * @details
+ * 从当前方块的位置开始，向下移动，直到碰到其他方块或棋盘底部。
+ */
+void calculatePreviewTile() {
+    // 从当前方块的位置开始
+    glm::vec2 previewPos = tilepos;
+
+    // 向下移动，直到碰到其他方块或棋盘底部
+	while (true) {
+		bool canMoveDown = true;
+		glm::vec2 newtilepos[4];
+		for (int i = 0; i < 4; ++i) {
+			newtilepos[i] = tile[i] + previewPos + glm::vec2(0, -1);
+		}
+		if (!checkvalid(newtilepos[0]) || !checkvalid(newtilepos[1]) || 
+			!checkvalid(newtilepos[2]) || !checkvalid(newtilepos[3])) {
+			canMoveDown = false;
+		}
+		if (!canMoveDown) {
+			break;
+		}
+		previewPos += glm::vec2(0, -1);
+	}
+
+    // 更新预览方块的位置
+    preview_tilepos = previewPos;
+    for (int i = 0; i < 4; ++i) {
+        preview_tile[i] = tile[i];
+    }
+
+    // 更新预览方块的VBO
+    updatePreviewTile();
 }
 
 // 游戏渲染部分
@@ -850,11 +958,15 @@ void display()
 	glBindVertexArray(vao[1]);
 	glDrawArrays(GL_TRIANGLES, 0, points_num); // 绘制棋盘格 (width * height * 2 个三角形)
 	
-	glBindVertexArray(vao[2]);
-	glDrawArrays(GL_TRIANGLES, 0, 24);	       // 绘制当前方块 (8 个三角形)
-	
 	glBindVertexArray(next_vao);
 	glDrawArrays(GL_TRIANGLES, 0, 24);         // 绘制下一个方块
+
+	glBindVertexArray(preview_vao);
+	glDrawArrays(GL_TRIANGLES, 0, 24);         // 绘制预览方块
+
+	// 先绘制预览方块再绘制当前方块，防止当前方块被预览方块盖住
+	glBindVertexArray(vao[2]);
+	glDrawArrays(GL_TRIANGLES, 0, 24);	       // 绘制当前方块 (8 个三角形) 
 
 	glBindVertexArray(vao[0]);
 	glDrawArrays(GL_LINES, 0, board_line_num * 2 );		 // 绘制棋盘格的线
