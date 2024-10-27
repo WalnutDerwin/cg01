@@ -792,9 +792,9 @@ void settile()
 		}
 	}
 
-	// 根据消除的行数增加得分
+	// 记分规则：消除n行，增加 10 * n * (n + 1) 分
 	if (linesClearedCounter) {
-		curr_user.score += linesClearedCounter * 10; // 每消除一行增加10分
+		curr_user.score += 10 * linesClearedCounter * (linesClearedCounter + 1);
 		printScore(); // 统一输出分数
 	}
 }
