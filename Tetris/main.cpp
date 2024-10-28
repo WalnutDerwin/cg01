@@ -1007,7 +1007,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		}
 		// 重新启动游戏
 		else if (key == GLFW_KEY_R) {
-			restart(); 
+			// 添加GLFW_PRESS的判断，解决按一次R重复开始游戏两次的Bug
+			if(action == GLFW_PRESS) {
+				restart(); 
+			}
 		}
 		return; // 除了退出游戏，重新开始游戏和恢复游戏，其他按键都无效
 	}
@@ -1117,8 +1120,9 @@ int main(int argc, char **argv)
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	#endif
 
+#pragma execution_character_set("utf-8"); // 告诉编译器源代码文件使用字符集UTF-8
 	// 创建窗口。glfwCreateWindow传入的窗口的实际大小（为保证比例，将宽度也设置为1.6倍）
-	GLFWwindow* window = glfwCreateWindow(500 * 1.6, 900, "Mid-Term-Skeleton-Code", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(500 * 1.6, 900, "2023095052_何典豪_期中大作业", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window!" << std::endl;
